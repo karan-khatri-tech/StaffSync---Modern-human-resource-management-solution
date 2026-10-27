@@ -1,0 +1,1068 @@
+# STAFFSYNC HR MANAGEMENT SYSTEM — COMPLETE CODE AUDIT, BUG FIXES, SECURITY HARDENING, AND REQUIREMENT COMPLIANCE
+
+Act as a senior full-stack software engineer, backend architect, database engineer, security auditor, and QA engineer.
+
+You previously generated or helped build my StaffSync HR Management System. I have reviewed the project's current files, and several potential issues have been identified.
+
+Your task is to **inspect the entire existing project, identify every actual issue, fix the issues, and make the application satisfy its original functional and technical requirements.**
+
+Do not merely provide recommendations, explanations, or sample code. Work directly on the existing project's files and implement the fixes.
+
+Do not claim that an issue has been fixed unless you have actually implemented and verified the fix.
+
+---
+
+# PART 1: IMPORTANT RULES
+
+Before making changes, follow these rules:
+
+1. Inspect the entire project, including all source files, components, server files, database modules, configuration files, stylesheets, and package dependencies.
+
+2. Do not rely exclusively on the README or the existence of API routes. Verify the actual implementation.
+
+3. Do not assume that a feature works simply because its component or endpoint exists.
+
+4. Identify the original requirements from the existing project context and preserve every requirement that is already satisfied.
+
+5. Do not unnecessarily rebuild the application from scratch. Improve the existing codebase and preserve its working functionality, design, and architecture wherever possible.
+
+6. Do not remove existing features, pages, components, API endpoints, or useful functionality just to make the implementation easier.
+
+7. Do not replace real functionality with mock data, hardcoded responses, fake success messages, or nonfunctional buttons.
+
+8. Do not introduce a new framework or unnecessary dependencies unless they are required to satisfy the project's requirements.
+
+9. Keep the existing React, TypeScript, Express, and Vite architecture unless a change is genuinely necessary.
+
+10. If you discover additional bugs or security vulnerabilities beyond the issues listed below, fix them as well.
+
+11. Do not expose secrets, API keys, passwords, authentication tokens, or sensitive employee information in logs, error messages, or client-side code.
+
+12. After making changes, run the available checks and test the application's actual workflows. If a test cannot be executed, clearly state why.
+
+13. Do not claim that the application is production-ready simply because it builds successfully.
+
+14. If you encounter missing configuration, unavailable external services, or missing credentials, implement the appropriate safe configuration and document any remaining setup required.
+
+15. Make changes incrementally and ensure that one fix does not break another feature.
+
+---
+
+# PART 2: FIX THE DATABASE AND DATA PERSISTENCE
+
+## Problem identified
+
+The project currently uses a custom database module imported by the Express server. The server calls `db.persist()` when data changes.
+
+However, the reviewed `package.json` does not include MongoDB or Mongoose dependencies, and the complete implementation of the database module has not yet been verified.
+
+The original technical requirement is to use MongoDB and Mongoose.
+
+## Required actions
+
+### A. Inspect the current database implementation
+
+Inspect the complete implementation of the database module, including:
+
+- `src/server/db.js` or its actual equivalent.
+- Database initialization.
+- Data models.
+- Database connection handling.
+- Data seeding.
+- Persistence logic.
+- Error handling.
+- Every API endpoint that reads or modifies data.
+
+Determine whether the current implementation uses MongoDB, in-memory storage, local files, or another storage mechanism.
+
+Do not guess. Verify the actual code.
+
+### B. Implement MongoDB and Mongoose if they are missing
+
+If the current implementation does not satisfy the MongoDB/Mongoose requirement, migrate the application's persistent data layer to MongoDB using Mongoose.
+
+Create appropriate models for the entities already supported by the application, such as:
+
+- Employees.
+- User accounts and roles, where applicable.
+- Leave requests.
+- Attendance records.
+- Announcements.
+- Training programs.
+- Kanban tasks.
+
+Preserve the existing application's data structures and functionality wherever possible.
+
+Avoid creating duplicate models or redundant collections.
+
+### C. Database configuration
+
+Use an environment variable such as:
+
+`MONGODB_URI`
+
+Requirements:
+
+- Never hardcode database credentials.
+- Never commit real database connection strings.
+- Validate required environment variables.
+- Provide an `.env.example` containing placeholders.
+- Handle connection failures gracefully.
+- Ensure the application does not silently operate as if data were saved when the database write failed.
+- Avoid connecting to the database multiple times unnecessarily.
+- Use proper asynchronous database operations.
+- Handle database disconnections and failed queries appropriately.
+
+### D. Data persistence
+
+Verify that all supported operations persist correctly.
+
+For example:
+
+1. Create an employee.
+2. Restart the server.
+3. Confirm the employee still exists.
+4. Create a leave request.
+5. Restart the server.
+6. Confirm the leave request still exists.
+7. Update attendance, training, announcements, and Kanban records.
+8. Confirm that all changes survive server restarts.
+
+Do not use an in-memory JavaScript object as the primary production database.
+
+If a lightweight development mode is retained, it must be clearly separated from the required MongoDB implementation and must not silently masquerade as persistent storage.
+
+### E. Data integrity
+
+Implement appropriate:
+
+- Required-field validation.
+- Unique constraints where appropriate.
+- Reference validation.
+- Consistent date handling.
+- Safe updates.
+- Deletion rules.
+- Database error handling.
+
+Avoid data loss when updating nested objects or modifying individual employee fields.
+
+If the project already contains seed data, preserve it and make seeding safe to run without creating duplicate records.
+
+---
+
+# PART 3: FIX AUTHENTICATION AND AUTHORIZATION
+
+## Problem identified
+
+The server contains a token-secret fallback similar to:
+
+`process.env.SESSION_SECRET || 'staffsync_jwt_secret_dev_key_2026'`
+
+A predictable fallback secret is unsafe for production.
+
+The application also contains a `/api/auth/demo-switch` endpoint. Its implementation must be inspected carefully because a demo-account switching mechanism can become a privilege-escalation vulnerability if users can obtain privileged tokens without proper authorization.
+
+## Required actions
+
+### A. Secure authentication secrets
+
+- Remove predictable hardcoded production secrets.
+- Load secrets from environment variables.
+- Validate secret configuration at startup.
+- Fail safely in production if required secrets are missing.
+- Never print secrets in logs.
+- Ensure development defaults cannot accidentally be used in production.
+
+Inspect whether the application uses JWTs or another token mechanism and implement the appropriate security controls consistently.
+
+If JWT is used:
+
+- Sign tokens securely.
+- Verify signatures and expiration.
+- Reject malformed or expired tokens.
+- Include only necessary claims.
+- Do not trust client-supplied roles.
+- Use appropriate token lifetimes.
+
+Do not introduce an unnecessary second authentication system.
+
+### B. Password security
+
+Inspect the complete login and account-creation implementation.
+
+If passwords are stored or verified insecurely, implement secure password hashing using a suitable password-hashing library such as bcrypt or bcryptjs.
+
+Requirements:
+
+- Never store plaintext passwords.
+- Never return password hashes to the client.
+- Never log passwords.
+- Verify passwords securely during login.
+- Do not expose passwords through employee or user API responses.
+- Avoid comparing passwords using insecure custom logic.
+
+If the project has no proper user-account model, create one and associate accounts with the correct employees and roles.
+
+### C. Role-based access control
+
+Implement and verify at least the roles required by the existing application:
+
+- HR Manager.
+- Employee.
+
+Managers should be able to perform authorized management operations.
+
+Employees should only be able to access or modify data permitted by the application's requirements.
+
+Enforce permissions on the backend, not merely by hiding buttons in React.
+
+Verify authorization for:
+
+- Employee creation.
+- Employee updates.
+- Employee deletion.
+- Leave approval and rejection.
+- Attendance operations.
+- Announcements.
+- Training management.
+- Kanban operations.
+- Statistics and dashboard data.
+- Account and profile information.
+
+An employee must not be able to promote themselves to manager by modifying a request body, query parameter, URL, or local browser state.
+
+A manager-only endpoint must reject unauthorized employees, even when they call it directly using a REST client.
+
+### D. Secure the demo-switch endpoint
+
+Inspect `/api/auth/demo-switch`.
+
+If demo switching is required, preserve it only in a safe form.
+
+Possible safe behavior:
+
+- Explicitly enable demo functionality only in a development or controlled demo environment.
+- Allow access only to predefined demo accounts.
+- Never allow arbitrary account IDs or role values to produce privileged tokens.
+- Never allow an employee to switch into a manager account without appropriate authorization.
+- Disable the endpoint in production unless a secure, intentional design requires it.
+- Ensure the frontend handles the endpoint being unavailable.
+
+Do not simply delete the feature if it is required for the demonstration. Secure it properly.
+
+### E. Session and token handling
+
+Review how the frontend stores and sends authentication tokens.
+
+- Avoid exposing tokens unnecessarily.
+- Do not store sensitive authentication data in insecure locations without evaluating the risks.
+- If using cookies, configure appropriate `HttpOnly`, `Secure`, and `SameSite` attributes.
+- If using bearer tokens, validate them consistently and document the design.
+- Implement logout correctly.
+- Clear authentication state when sessions expire.
+- Prevent stale frontend state from making unauthorized access appear possible.
+
+Use CSRF protection where required by the selected authentication design.
+
+### F. Authentication testing
+
+Test:
+
+1. Valid login.
+2. Invalid password.
+3. Unknown user.
+4. Expired token.
+5. Missing token.
+6. Malformed token.
+7. Employee accessing a manager-only endpoint.
+8. Employee attempting to modify another employee's protected data.
+9. Attempted privilege escalation.
+10. Logout and subsequent access.
+11. Demo mode in development.
+12. Demo endpoint behavior in production.
+
+All unauthorized requests must fail safely and consistently.
+
+---
+
+# PART 4: VERIFY AND FIX ALL HRMS FEATURES
+
+The current server exposes API routes for the following modules. Verify the actual implementation of every module, including frontend interactions, backend logic, persistence, validation, and authorization.
+
+Do not stop at confirming that endpoints exist.
+
+## A. Authentication and user profile
+
+Inspect and fix:
+
+- Login.
+- Logout.
+- Current-user retrieval.
+- Role handling.
+- Employee profile display.
+- Profile updates, if supported.
+- Loading states.
+- Authentication errors.
+- Expired sessions.
+- Page refresh behavior.
+- Unauthorized navigation.
+
+Ensure the application does not display one employee's private information to another employee.
+
+## B. Employee management
+
+Inspect the existing employee endpoints:
+
+- `GET /api/employees`
+- `POST /api/employees`
+- `PUT /api/employees/:id`
+- `DELETE /api/employees/:id`
+
+Verify:
+
+- Authorized employee listing.
+- Employee creation.
+- Employee detail retrieval, if supported.
+- Employee updates.
+- Employee deletion.
+- Duplicate employee identifiers or emails.
+- Required fields.
+- Invalid IDs.
+- Invalid email formats.
+- Missing values.
+- Unauthorized modification.
+- Safe handling of user roles and sensitive fields.
+- Correct frontend updates after a successful operation.
+
+Use appropriate validation and meaningful error responses.
+
+Ensure a normal employee cannot create, delete, or modify employees unless explicitly authorized.
+
+Do not allow an ordinary employee update to overwrite protected fields such as roles, permissions, or authentication credentials.
+
+## C. Leave management
+
+Inspect:
+
+- `GET /api/leaves`
+- `POST /api/leaves`
+- `PATCH /api/leaves/:id/status`
+
+Verify:
+
+- Employees can submit leave requests.
+- Requests contain valid dates and required information.
+- End dates cannot precede start dates.
+- Employees cannot approve their own requests unless explicitly allowed by the requirements.
+- Employees cannot change another employee's request.
+- Managers can approve or reject requests.
+- Invalid status values are rejected.
+- Repeated or conflicting updates are handled safely.
+- The interface displays the correct status.
+- Leave changes persist in the database.
+
+If leave balances or overlapping requests are part of the existing requirements, verify and implement their business rules without inventing unsupported policies.
+
+## D. Attendance management
+
+Inspect:
+
+- `GET /api/attendance`
+- `POST /api/attendance/check-in`
+- `POST /api/attendance/check-out`
+
+Verify:
+
+- Employees can check in and check out.
+- Duplicate check-ins are prevented.
+- Check-out requires an appropriate active attendance record.
+- Invalid or inconsistent timestamps are rejected.
+- Employees cannot manipulate another employee's attendance.
+- Employees cannot submit arbitrary employee IDs to bypass authorization.
+- Attendance records persist.
+- Time zones are handled consistently.
+- The UI displays accurate attendance states.
+- Failed requests do not incorrectly show success.
+
+Use server-controlled timestamps for normal attendance events unless the requirements explicitly support a different workflow.
+
+Do not allow attendance to be silently overwritten by repeated requests.
+
+## E. Announcements
+
+Inspect:
+
+- `GET /api/announcements`
+- `POST /api/announcements`
+- `DELETE /api/announcements/:id`
+
+Verify:
+
+- Authorized users can create announcements.
+- The intended audience can view them.
+- Unauthorized users cannot create or delete announcements.
+- Required fields are validated.
+- Empty titles or content are rejected when required.
+- Invalid IDs are handled correctly.
+- Deletion updates the UI.
+- Records persist.
+- User-provided content is rendered safely.
+
+## F. Training management
+
+Inspect:
+
+- `GET /api/trainings`
+- `POST /api/trainings`
+- `PUT /api/trainings/:id`
+- `DELETE /api/trainings/:id`
+
+Verify:
+
+- Training programs can be listed.
+- Authorized managers can create, edit, and delete training programs.
+- Employees can view relevant training information.
+- Invalid dates and missing fields are rejected.
+- Updates preserve fields that were not intended to change.
+- Unauthorized changes are rejected.
+- The frontend displays updated information.
+- Data persists.
+
+If enrollment, completion tracking, or progress tracking already exists in the application, verify it as well.
+
+Do not invent new training workflows unless they are necessary to satisfy the existing requirements.
+
+## G. Kanban board
+
+Inspect:
+
+- `GET /api/kanban`
+- `POST /api/kanban`
+- `PATCH /api/kanban/:id`
+- `DELETE /api/kanban/:id`
+
+Verify:
+
+- Tasks can be created, displayed, updated, and deleted.
+- Task status changes work correctly.
+- Invalid statuses are rejected.
+- Required fields are validated.
+- Updates do not unintentionally erase existing fields.
+- Permissions are enforced.
+- Task ownership and visibility follow the existing requirements.
+- The interface updates correctly.
+- Tasks persist after a server restart.
+
+If drag-and-drop is already implemented, verify that moving a task between columns updates the backend successfully.
+
+Do not create fake task updates that change only the frontend state.
+
+## H. Dashboard and statistics
+
+Inspect:
+
+- `GET /api/stats`
+- The Overview Dashboard.
+- All cards, counters, summaries, and charts.
+
+Verify that statistics come from actual application data rather than unrelated hardcoded numbers.
+
+Check:
+
+- Employee totals.
+- Leave-request counts.
+- Attendance statistics.
+- Training information.
+- Kanban statistics.
+- Role-specific information.
+- Empty-database behavior.
+- Database query failures.
+- Loading and error states.
+
+Use a single consistent source of truth for each statistic.
+
+Ensure employee dashboards do not expose private information about other employees.
+
+---
+
+# PART 5: VALIDATION, ERROR HANDLING, AND API QUALITY
+
+Review all API endpoints, not only those explicitly listed above.
+
+Implement consistent behavior for:
+
+- Invalid request bodies.
+- Missing required fields.
+- Invalid IDs.
+- Unsupported HTTP methods.
+- Unauthorized requests.
+- Forbidden operations.
+- Missing records.
+- Duplicate records.
+- Database failures.
+- Unexpected server errors.
+- Invalid query parameters.
+- Invalid pagination or filtering parameters, if supported.
+
+Requirements:
+
+1. Validate all user-controlled inputs on the server.
+2. Never rely exclusively on frontend validation.
+3. Return appropriate HTTP status codes.
+4. Use consistent JSON response structures.
+5. Return helpful but safe error messages.
+6. Do not expose stack traces or sensitive implementation details to users in production.
+7. Log useful debugging information without logging secrets or sensitive personal information.
+8. Prevent unhandled promise rejections.
+9. Avoid swallowing errors and reporting false success.
+10. Ensure the frontend handles non-success responses correctly.
+
+Where appropriate, add request-size limits, rate limiting for sensitive endpoints, and protections against brute-force login attempts.
+
+Avoid introducing excessive middleware that is not justified by the application.
+
+---
+
+# PART 6: FRONTEND, REACT, AND TYPESCRIPT QUALITY
+
+The application uses React, TypeScript, Vite, Tailwind CSS, and related libraries.
+
+Inspect the entire frontend and fix all actual issues.
+
+## A. React behavior
+
+Verify:
+
+- Components render correctly.
+- State updates are reliable.
+- Effects do not cause unnecessary repeated requests.
+- Event handlers work.
+- Forms submit correctly.
+- Loading states appear when needed.
+- Errors are displayed clearly.
+- Components do not access undefined data.
+- Lists use stable keys.
+- API requests are cleaned up appropriately where necessary.
+- Authentication state remains consistent after refresh.
+- Navigation respects user permissions.
+
+Avoid unnecessary rewrites or excessive state-management complexity.
+
+## B. API integration
+
+Verify that every frontend action uses the correct backend endpoint and HTTP method.
+
+Ensure:
+
+- Request bodies match backend expectations.
+- Authentication headers are attached correctly.
+- API errors are handled.
+- Loading indicators stop after completion or failure.
+- Success messages appear only after successful operations.
+- The UI refreshes or updates after successful mutations.
+- Failed mutations do not leave misleading frontend state.
+- The application does not silently fall back to fake data when an API request fails.
+
+## C. TypeScript
+
+Run the existing TypeScript check:
+
+`npm run lint`
+
+Despite its name, this script currently runs `tsc --noEmit`.
+
+Fix actual TypeScript errors, invalid types, incompatible API response definitions, and incorrect imports.
+
+Avoid using `any` unnecessarily. Define reusable types and interfaces for important entities and API responses.
+
+Do not disable type checking or weaken TypeScript configuration merely to make the command pass.
+
+## D. Styling and responsive design
+
+Preserve the existing StaffSync visual identity and improve genuine defects.
+
+Verify:
+
+- Desktop layout.
+- Tablet layout.
+- Mobile layout.
+- Sidebar behavior.
+- Navigation.
+- Forms.
+- Tables.
+- Modals and dialogs.
+- Kanban board.
+- Dashboard cards.
+- Empty states.
+- Long text.
+- Overflow and scrolling.
+- Loading and error messages.
+- Readability and contrast.
+- Keyboard navigation.
+- Visible focus indicators.
+
+Preserve the existing color palette and overall design direction unless the original requirements specify otherwise.
+
+Do not redesign the entire application unnecessarily.
+
+Ensure the interface is usable on small screens, not merely scaled down.
+
+---
+
+# PART 7: DEPENDENCIES, BUILD, AND SERVER CONFIGURATION
+
+The current `package.json` includes React, React DOM, Vite, Express, TypeScript, Tailwind CSS, the Vite Tailwind plugin, `tsx`, `esbuild`, and other dependencies.
+
+Inspect the complete configuration and fix any incompatibilities.
+
+## A. Dependency management
+
+- Verify that all imported packages are declared correctly.
+- Add MongoDB/Mongoose dependencies if required by the final implementation.
+- Remove unused dependencies only after confirming they are genuinely unused.
+- Avoid unnecessary dependency additions.
+- Resolve incompatible package versions.
+- Preserve the existing lockfile and update it consistently if dependencies change.
+- Do not blindly upgrade every package to its latest version.
+
+## B. Development server
+
+The existing `dev` script runs:
+
+`tsx server.ts`
+
+Verify that the development server:
+
+- Starts successfully.
+- Loads the intended environment variables.
+- Starts the backend and frontend correctly.
+- Handles API requests.
+- Serves the React application.
+- Handles errors without crashing unnecessarily.
+
+## C. Production build
+
+The existing build script runs:
+
+`vite build && esbuild server.ts --platform=node --format=esm --packages=external --outfile=server.js`
+
+The start script runs:
+
+`node server.js`
+
+Verify that this setup actually works.
+
+Check:
+
+- Frontend assets are generated correctly.
+- The server bundle starts correctly.
+- Production routes work.
+- The server serves the built frontend correctly.
+- API routes are not accidentally replaced by frontend routes.
+- Static asset paths are correct.
+- Environment variables are loaded safely.
+- Production errors are handled appropriately.
+- The application listens on the configured port.
+- Hosting environments can bind to the expected network interface.
+
+Do not assume the current setup works merely because the commands are present.
+
+## D. Environment configuration
+
+Inspect `.env.example`, `.gitignore`, and all environment-variable usage.
+
+The project currently documents `GEMINI_API_KEY` and `APP_URL`, while the server also references `SESSION_SECRET`.
+
+Determine which environment variables the final application actually needs.
+
+Add appropriate placeholders for all required variables, including MongoDB configuration if implemented.
+
+Remove misleading documentation for variables that are not used.
+
+Do not commit real credentials.
+
+Verify whether `dotenv` is initialized correctly. If local environment-file loading is required, configure it explicitly and consistently.
+
+Do not expose server-only secrets through Vite client-side environment variables.
+
+## E. Port and startup behavior
+
+Ensure the application uses the configured port correctly and does not depend unnecessarily on a hardcoded development port.
+
+If the project uses port 3000 by default, preserve that behavior where appropriate while supporting the hosting environment's configured port.
+
+---
+
+# PART 8: GOOGLE GEMINI API INTEGRATION
+
+The project currently declares the `@google/genai` package and documents `GEMINI_API_KEY`.
+
+However, the reviewed server file did not establish whether Gemini is actually used by the application's current features.
+
+Inspect the entire source tree and determine whether AI functionality is genuinely implemented.
+
+If the existing requirements include AI functionality:
+
+- Complete the integration.
+- Keep API calls on the server.
+- Read the API key from a server-side environment variable.
+- Handle missing credentials.
+- Handle API errors and rate limits.
+- Validate user inputs.
+- Avoid exposing the API key in the browser.
+- Display meaningful loading and error states.
+
+If the application does not require AI functionality, do not invent an AI feature merely because the dependency exists. Remove unused integration code or dependencies where appropriate and update the documentation accordingly.
+
+Never claim that Gemini functionality works unless it has been implemented and tested.
+
+---
+
+# PART 9: DEMO DATA AND INITIAL SETUP
+
+Inspect how the application initializes its data and whether demo accounts exist.
+
+If demo accounts are required:
+
+- Create a safe, repeatable seeding mechanism.
+- Ensure demo users have the intended roles.
+- Hash passwords properly.
+- Avoid duplicate seed records.
+- Document how to initialize the database.
+- Keep demo credentials out of production configuration.
+- Prevent demo accounts from being created unintentionally in production.
+- Do not expose real users' credentials.
+
+If the existing application already has demo accounts, preserve their intended functionality while correcting security problems.
+
+Do not document usernames or passwords unless they are actually configured and verified.
+
+The application must also handle an empty database without crashing.
+
+---
+
+# PART 10: TESTING AND QUALITY ASSURANCE
+
+Create or improve an appropriate automated testing setup.
+
+Do not add tests merely to make the test count look impressive.
+
+Test the application's actual business logic.
+
+## A. Backend tests
+
+Cover:
+
+- Authentication.
+- Authorization.
+- Employee CRUD.
+- Leave submission and approval.
+- Attendance check-in and check-out.
+- Announcements.
+- Training.
+- Kanban operations.
+- Dashboard statistics.
+- Input validation.
+- Error handling.
+- Database persistence.
+
+Use an isolated test database or suitable test setup so tests cannot accidentally modify production data.
+
+## B. Frontend tests
+
+Where practical, test:
+
+- Login behavior.
+- Form validation.
+- API error handling.
+- Role-specific UI behavior.
+- Employee management.
+- Leave workflows.
+- Attendance interactions.
+- Loading and empty states.
+
+## C. Integration tests
+
+Verify that the frontend and backend agree on API routes, field names, status codes, authentication behavior, and response structures.
+
+Test the following end-to-end scenarios:
+
+### Scenario 1: Manager workflow
+
+1. Log in as a manager.
+2. View dashboard statistics.
+3. Create an employee.
+4. Verify the employee appears in the employee list.
+5. Update the employee.
+6. Submit or access a leave request.
+7. Approve or reject the request.
+8. Create an announcement.
+9. Create or update a training program.
+10. Create and update a Kanban task.
+11. Confirm the changes persist.
+
+### Scenario 2: Employee workflow
+
+1. Log in as an employee.
+2. View the employee dashboard.
+3. View permitted employee information.
+4. Submit a leave request.
+5. Check in.
+6. Check out.
+7. View announcements.
+8. View available training information.
+9. Confirm that the employee cannot perform unauthorized manager actions.
+
+### Scenario 3: Security
+
+1. Call a protected endpoint without a token.
+2. Call it with an invalid token.
+3. Try accessing a manager-only endpoint as an employee.
+4. Try changing an employee's role through a crafted request.
+5. Try accessing another employee's private information.
+6. Try using demo switching to obtain unauthorized privileges.
+7. Confirm that all unauthorized operations are rejected.
+
+### Scenario 4: Persistence
+
+1. Create records across multiple modules.
+2. Restart the server.
+3. Confirm that the records remain available.
+4. Confirm that updates and deletions were saved correctly.
+
+---
+
+# PART 11: DOCUMENTATION AND README
+
+Update the project's README to match the final, verified implementation.
+
+The README must document:
+
+- Project overview.
+- Actual features.
+- Actual technology stack.
+- Actual architecture.
+- Prerequisites.
+- Installation instructions.
+- Required environment variables.
+- MongoDB setup, if implemented.
+- Database initialization and seeding.
+- Development commands.
+- Production build and startup commands.
+- Authentication and demo-account setup.
+- API endpoints.
+- Testing commands.
+- Deployment instructions.
+- Known limitations.
+
+Remove claims that are not supported by the actual code.
+
+Do not describe the project as a separate React frontend and Express backend if the application is actually configured as a combined Express/Vite server.
+
+Do not claim that the project uses MongoDB, JWT, bcrypt, or any other technology until the implementation actually supports that claim.
+
+Do not include fake demo credentials or placeholder API behavior as if it were functional.
+
+---
+
+# PART 12: SECURITY AND PRODUCTION READINESS CHECKLIST
+
+Before finishing, review the entire application for:
+
+- Hardcoded secrets.
+- Insecure token handling.
+- Missing authorization checks.
+- Privilege escalation.
+- Insecure password storage.
+- Exposure of private employee information.
+- Unsafe input handling.
+- Inadequate request validation.
+- Unsafe error messages.
+- Missing rate limiting on sensitive endpoints where appropriate.
+- Insecure cross-origin configuration.
+- Cross-site scripting risks.
+- CSRF risks where applicable.
+- Unsafe database queries or updates.
+- Unhandled asynchronous errors.
+- Missing environment configuration.
+- Accidental exposure of API keys.
+- Incorrect production asset serving.
+- Inadequate session expiration.
+- Unsafe demo-mode behavior.
+- Unnecessary public endpoints.
+- Dependency vulnerabilities that can be identified using available tools.
+
+Fix every confirmed issue that falls within the project's scope.
+
+Do not introduce security measures that break legitimate application workflows without providing a suitable replacement.
+
+If a security issue cannot be completely resolved because of missing credentials, hosting limitations, or unavailable services, document the limitation clearly.
+
+---
+
+# PART 13: IMPLEMENTATION STRATEGY
+
+Follow this sequence:
+
+### Phase 1 — Audit
+
+Inspect the complete project and compare the implementation with the requirements.
+
+Create an internal checklist of:
+
+- Confirmed bugs.
+- Security vulnerabilities.
+- Missing requirements.
+- Incorrect configuration.
+- Incomplete features.
+- Testing gaps.
+- Documentation inaccuracies.
+
+Do not stop after generating this checklist.
+
+### Phase 2 — Fix architecture and database issues
+
+Correct the database implementation and persistence behavior first, because the other modules depend on them.
+
+### Phase 3 — Fix authentication and authorization
+
+Secure login, passwords, tokens, roles, demo functionality, and access to sensitive data.
+
+### Phase 4 — Fix business logic
+
+Verify and repair employee management, leaves, attendance, announcements, training, Kanban, and dashboard statistics.
+
+### Phase 5 — Fix frontend integration
+
+Correct API calls, state management, form validation, error handling, responsive behavior, and role-specific screens.
+
+### Phase 6 — Fix configuration and documentation
+
+Correct dependencies, environment variables, startup scripts, production builds, README instructions, and deployment configuration.
+
+### Phase 7 — Test everything
+
+Run the available checks, build the application, execute tests, and verify the important workflows.
+
+Fix the issues revealed by testing before declaring the work complete.
+
+---
+
+# PART 14: FINAL ACCEPTANCE CRITERIA
+
+The project should not be considered complete until the following conditions have been satisfied or any remaining limitation is explicitly documented.
+
+1. The application starts successfully in development.
+2. The production build succeeds.
+3. The production server starts successfully.
+4. The application serves the frontend correctly.
+5. Authentication works correctly.
+6. Passwords are handled securely.
+7. Role-based authorization is enforced on the backend.
+8. The demo mechanism cannot grant unauthorized privileges.
+9. MongoDB and Mongoose are implemented if required by the original specification.
+10. Data persists correctly across server restarts.
+11. Employee CRUD operations work.
+12. Leave workflows work.
+13. Attendance workflows work.
+14. Announcements work.
+15. Training workflows work.
+16. Kanban operations work.
+17. Dashboard statistics reflect real data.
+18. Invalid input is handled safely.
+19. Unauthorized requests are rejected.
+20. Frontend and backend API contracts match.
+21. TypeScript checks pass.
+22. Automated tests pass, where configured.
+23. The responsive interface remains usable.
+24. Environment variables and secrets are configured safely.
+25. The README matches the actual implementation.
+26. No existing required feature has been unintentionally removed.
+27. No fake success messages or mock implementations have replaced required functionality.
+
+If an acceptance criterion cannot be tested, state exactly what prevented testing it.
+
+---
+
+# PART 15: FINAL REPORT
+
+After implementing the changes, provide a concise but detailed report containing:
+
+## 1. Issues found
+
+List the actual issues discovered in the source code, including issues not mentioned in this prompt.
+
+Distinguish confirmed bugs from risks and items that could not be verified.
+
+## 2. Fixes implemented
+
+For each issue, explain:
+
+- What was wrong.
+- Which files were changed.
+- What was changed.
+- Why the fix resolves the issue.
+
+## 3. Database status
+
+Explain:
+
+- Which database is used.
+- Whether MongoDB and Mongoose are configured.
+- How data persistence works.
+- Which environment variables must be configured.
+- How the database should be initialized.
+
+## 4. Authentication and security status
+
+Explain what was changed regarding:
+
+- Password hashing.
+- Token generation and verification.
+- Role-based authorization.
+- Demo access.
+- Secret management.
+- Sensitive employee data.
+
+## 5. Testing results
+
+List the actual commands executed and their results.
+
+Include:
+
+- TypeScript checks.
+- Production build.
+- Automated tests.
+- API tests.
+- Important workflow tests.
+
+Do not fabricate successful test results.
+
+## 6. Remaining work
+
+List anything that still requires manual setup, credentials, deployment configuration, external services, or additional verification.
+
+## 7. Final compliance assessment
+
+For each major original requirement, classify it as:
+
+- **PASS** — implemented and verified.
+- **PARTIAL** — implemented but not fully verified or incomplete.
+- **FAIL** — missing or not working.
+- **BLOCKED** — cannot be verified because of an external dependency or missing information.
+
+Only mark a requirement PASS when there is sufficient evidence that it works.
+
+---
+
+# FINAL INSTRUCTION
+
+Start by inspecting the complete existing project.
+
+Then implement the necessary fixes directly in the codebase.
+
+Prioritize correctness, security, data integrity, maintainability, and compliance with the original requirements.
+
+Preserve the working StaffSync application and its existing design. Do not unnecessarily rewrite everything.
+
+**I want a corrected, working application—not just a list of suggestions. Fix all confirmed issues, verify the results, and clearly report anything that remains incomplete.**

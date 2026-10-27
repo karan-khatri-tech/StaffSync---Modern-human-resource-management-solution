@@ -1,0 +1,6 @@
+{
+  "name": "StaffSync - HR Management System",
+  "description": "Comprehensive Human Resource Management System with Employee Portal and HR Manager Dashboard for leaves, attendance, training, and announcements.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
