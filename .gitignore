@@ -30,3 +30,6 @@ desktop.ini
 *.tmp
 *.temp
 data/staffsync_db.json
+
+# Generated backend build
+/server.js

@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import { GoogleGenAI } from '@google/genai';
 import { db } from './src/server/db.js';
 import {
@@ -15,14 +15,11 @@ import {
   KanbanTask,
 } from './src/types/index.js';
 
-// Load environment variables
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express();
-const PORT = 3000;
+export const app = express();
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '1mb' }));
 
@@ -859,11 +856,26 @@ Provide your output as a JSON object with two fields:
 // VITE DEV SERVER OR STATIC SERVE
 // ----------------------------------------------------
 
-async function startServer() {
-  // Initialize Database (connects to MongoDB if MONGODB_URI is provided, otherwise persistent local storage)
+/**
+ * initializeApp: Initializes the database connection.
+ * Called once per cold-start in the Vercel serverless function (api/index.ts).
+ * Also called by startServer() for local development.
+ * Safe to call multiple times — db.init() is idempotent.
+ */
+export async function initializeApp(): Promise<void> {
   await db.init();
+}
+
+/**
+ * startServer: Used exclusively for local development (npm run dev / npm start).
+ * Mounts static files or Vite middleware, then starts the HTTP listener.
+ * Never called in the Vercel serverless environment.
+ */
+async function startServer() {
+  await initializeApp();
 
   if (process.env.NODE_ENV === 'production') {
+    // Serve built Vite frontend for `npm start` local production mode
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (_req: Request, res: Response) => {
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));
@@ -883,7 +895,14 @@ async function startServer() {
   });
 }
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+// Only start the listener when this file is run directly (local dev/production)
+// In the Vercel serverless environment, api/index.ts imports `app` and `initializeApp` without calling startServer().
+const isDirectRun = process.argv[1] &&
+  (process.argv[1].endsWith('server.js') || process.argv[1].endsWith('server.ts'));
+
+if (isDirectRun) {
+  startServer().catch((err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}

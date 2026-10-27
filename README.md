@@ -10,7 +10,7 @@ StaffSync is a production-grade, full-stack Human Resource Management System bui
 - **Backend**: Node.js, Express, TypeScript (`tsx` in dev, `esbuild` for production).
 - **Database & Persistence**:
   - **Mongoose / MongoDB**: Official ODM and schemas (`User`, `Employee`, `Leave`, `Attendance`, `Announcement`, `Training`, `Kanban`).
-  - **Unified Adapter**: Automatically connects to MongoDB when `MONGODB_URI` is provided; seamlessly falls back to atomic persistent JSON storage (`data/staffsync_db.json`) if running in standalone or disconnected environments.
+  - **Unified Adapter**: Uses MongoDB when `MONGODB_URI` is provided. Local development may use atomic persistent JSON storage (`data/staffsync_db.json`) when MongoDB is not configured; Vercel deployments require MongoDB and never use the local filesystem as a database.
 - **Security & Cryptography**:
   - **Password Hashing**: `bcryptjs` with work factor 10.
   - **Session Tokens**: Cryptographically signed HMAC-SHA256 tokens with timestamp expiration (`exp`) and signature verification.
@@ -70,7 +70,7 @@ Copy `.env.example` to `.env` or configure the variables in your hosting environ
 
 ```bash
 # Database Configuration
-# MongoDB connection URI. If omitted or unreachable, StaffSync uses persistent atomic local storage.
+# MongoDB connection URI. Required on Vercel; local development may omit it.
 MONGODB_URI="mongodb://localhost:27017/staffsync"
 
 # Authentication & Token Security
@@ -90,6 +90,8 @@ PORT=3000
 # Optional: Server-side Gemini AI API Key
 GEMINI_API_KEY="your_gemini_api_key"
 ```
+
+`APP_URL` is optional and is not currently required by the application. `VERCEL_URL` is provided automatically by Vercel.
 
 ---
 
@@ -131,6 +133,28 @@ Generates production client assets in `dist/` and compiles `server.ts` into an o
 ```bash
 npm start
 ```
+
+### Deploy to Vercel
+
+Use the repository root as the Vercel project root. The checked-in `vercel.json`:
+
+- builds the Vite frontend and bundled Express entry point with `npm run build`;
+- sends `/api/*` requests to `api/index.ts`;
+- serves the Vite `dist` output for all non-API paths, including client-side React routes.
+
+Configure these Vercel project settings:
+
+| Setting | Value |
+| :--- | :--- |
+| Framework Preset | Other |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Install Command | `npm install` |
+| Root Directory | Repository root |
+
+Set `MONGODB_URI`, `SESSION_SECRET`, and `NODE_ENV=production` in the Vercel dashboard. `ENABLE_DEMO_SWITCH` should be omitted or set to `false` in production. Add `GEMINI_API_KEY` only when the optional AI drafting feature is needed. `APP_URL` is optional and currently unused by the application.
+
+In MongoDB Atlas, create a database user with access to the StaffSync database and add the required Vercel network access rule. Atlas deployments commonly use `0.0.0.0/0` because Vercel serverless egress IPs are not fixed; restrict access further with a supported fixed-egress architecture if your security policy requires it. Do not commit the connection string or session secret.
 
 ---
 

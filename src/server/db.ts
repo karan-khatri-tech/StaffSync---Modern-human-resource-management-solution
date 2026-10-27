@@ -33,6 +33,10 @@ interface DatabaseSchema {
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'staffsync_db.json');
 
+// Detect Vercel serverless environment — filesystem is read-only on Vercel
+const IS_VERCEL = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
+const HAS_MONGO_URI = Boolean(process.env.MONGODB_URI?.trim());
+
 function hashPassword(password: string): string {
   return bcrypt.hashSync(password, 10);
 }
@@ -420,8 +424,28 @@ class UnifiedDatabase {
   private localData: DatabaseSchema;
   private mongoConnected = false;
   private isConnecting = false;
+  private initialization: Promise<void> | undefined;
 
   constructor() {
+    // On Vercel or when MongoDB is configured, skip filesystem initialization.
+    // The local JSON storage is only used in local development without MongoDB.
+    if (IS_VERCEL || HAS_MONGO_URI) {
+      // Keep a guarded placeholder so production can never silently use local data.
+      this.localData = new Proxy(generateInitialData(), {
+        get: (target, property, receiver) => {
+          if (IS_VERCEL && !this.mongoConnected) {
+            throw new Error('MongoDB is not connected; local storage is disabled on Vercel.');
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      });
+      if (IS_VERCEL) {
+        console.log('[StaffSync DB] Vercel environment detected. Filesystem storage disabled. MongoDB required.');
+      }
+      return;
+    }
+
+    // Local development without MongoDB — use persistent JSON file storage
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
@@ -455,19 +479,45 @@ class UnifiedDatabase {
   }
 
   public async init(): Promise<void> {
+    if (this.initialization) return this.initialization;
+
+    this.initialization = this.connect();
+    try {
+      await this.initialization;
+    } catch (error) {
+      this.initialization = undefined;
+      throw error;
+    }
+  }
+
+  private async connect(): Promise<void> {
     const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri || mongoUri.trim() === '') {
-      console.log('[StaffSync DB] MONGODB_URI not configured. Operating in robust persistent JSON storage mode.');
+      if (IS_VERCEL) {
+        throw new Error('MONGODB_URI must be configured for Vercel deployments.');
+      } else {
+        console.log('[StaffSync DB] MONGODB_URI not configured. Operating in robust persistent JSON storage mode.');
+      }
       return;
     }
 
-    if (this.mongoConnected || this.isConnecting) return;
+    // Reuse existing mongoose connection across serverless invocations (connection pooling)
+    if (mongoose.connection.readyState === 1) {
+      // Already connected — reuse the connection
+      this.mongoConnected = true;
+      this.isConnecting = false;
+      return;
+    }
+
+    if (this.mongoConnected) return;
 
     try {
       this.isConnecting = true;
       console.log(`[StaffSync DB] Connecting to MongoDB: ${mongoUri.replace(/:[^:@]+@/, ':****@')}`);
       await mongoose.connect(mongoUri, {
-        serverSelectionTimeoutMS: 5000,
+        serverSelectionTimeoutMS: 10000,
+        // Prevent mongoose from buffering commands while disconnected
+        bufferCommands: false,
       });
 
       this.mongoConnected = true;
@@ -483,7 +533,13 @@ class UnifiedDatabase {
     } catch (err: any) {
       this.isConnecting = false;
       this.mongoConnected = false;
-      console.warn(`[StaffSync DB] Could not connect to MongoDB (${err.message}). Seamlessly running on persistent local storage.`);
+      if (IS_VERCEL) {
+        throw new Error(
+          `Could not connect to MongoDB on Vercel (${err.message}). Check MONGODB_URI and MongoDB Atlas network access settings.`,
+        );
+      } else {
+        console.warn(`[StaffSync DB] Could not connect to MongoDB (${err.message}). Seamlessly running on persistent local storage.`);
+      }
     }
   }
 
@@ -517,6 +573,8 @@ class UnifiedDatabase {
   }
 
   private saveLocal(): void {
+    // Never write to filesystem on Vercel (read-only) or when using MongoDB
+    if (IS_VERCEL || this.mongoConnected) return;
     try {
       const tempFile = `${DB_FILE}.tmp.${Date.now()}`;
       fs.writeFileSync(tempFile, JSON.stringify(this.localData, null, 2), 'utf-8');
